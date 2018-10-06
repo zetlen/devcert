@@ -19,8 +19,7 @@ import {
   caVersionFile
 } from './constants';
 import currentPlatform from './platforms';
-import { openssl, mktmp } from './utils';
-import { generateKey } from './certificates';
+import { generateKey, generateCACertificate, mktmp } from './utils';
 import { Options } from './index';
 
 const debug = createDebug('devcert:certificate-authority');
@@ -44,7 +43,7 @@ export default async function installCertificateAuthority(options: Options = {})
   generateKey(rootKeyPath);
 
   debug(`Generating a CA certificate`);
-  openssl(`req -new -x509 -config "${ caSelfSignConfig }" -key "${ rootKeyPath }" -out "${ rootCertPath }"`);
+  generateCACertificate(caSelfSignConfig, rootKeyPath, rootCertPath);
 
   debug('Saving certificate authority credentials');
   await saveCertificateAuthorityCredentials(rootKeyPath, rootCertPath);

@@ -1,6 +1,7 @@
 import { execSync, ExecSyncOptions } from 'child_process';
 import tmp from 'tmp';
 import createDebug from 'debug';
+import { chmodSync as chmod } from 'fs';
 import path from 'path';
 import sudoPrompt from 'sudo-prompt';
 
@@ -10,7 +11,26 @@ import {
 
 const debug = createDebug('devcert:util');
 
-export function openssl(cmd: string) {
+export function generateCACertificate(caSelfSignConfig: string, rootKeyPath: string, rootCertPath: string) {
+  openssl(`req -new -x509 -config "${ caSelfSignConfig }" -key "${ rootKeyPath }" -out "${ rootCertPath }"`);
+}
+
+export function generateCertificateSigningRequest(configpath: string, domainKeyPath: string, csrFile: string) {
+  openssl(`req -new -config "${ configpath }" -key "${ domainKeyPath }" -out "${ csrFile }"`);
+}
+
+export function generateCertificateWithCA(domainCertConfigPath: string, csrFile: string, domainCertPath: string, caKeyPath: string, caCertPath: string): void {
+    openssl(`ca -config "${ domainCertConfigPath }" -in "${ csrFile }" -out "${ domainCertPath }" -keyfile "${ caKeyPath }" -cert "${ caCertPath }" -days 7000 -batch`)
+}
+// Generate a cryptographic key, used to sign certificates or certificate signing requests.
+export function generateKey(filename: string): void {
+  debug(`generateKey: ${ filename }`);
+  openssl(`genrsa -out "${ filename }" 2048`);
+  chmod(filename, 400);
+}
+
+
+function openssl(cmd: string) {
   return run(`openssl ${ cmd }`, {
     stdio: 'pipe',
     env: Object.assign({

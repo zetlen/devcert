@@ -1,9 +1,8 @@
 // import path from 'path';
 import createDebug from 'debug';
 import { sync as mkdirp } from 'mkdirp';
-import { chmodSync as chmod } from 'fs';
 import { pathForDomain, withDomainSigningRequestConfig, withDomainCertificateConfig } from './constants';
-import { openssl } from './utils';
+import { generateKey, generateCertificateWithCA, generateCertificateSigningRequest } from './utils';
 import { withCertificateAuthorityCredentials } from './certificate-authority';
 
 const debug = createDebug('devcert:certificates');
@@ -25,7 +24,7 @@ export default async function generateDomainCertificate(domain: string): Promise
   debug(`Generating certificate signing request for ${ domain }`);
   let csrFile = pathForDomain(domain, `certificate-signing-request.csr`);
   withDomainSigningRequestConfig(domain, (configpath) => {
-    openssl(`req -new -config "${ configpath }" -key "${ domainKeyPath }" -out "${ csrFile }"`);
+    generateCertificateSigningRequest(configpath, domainKeyPath, csrFile);
   });
 
   debug(`Generating certificate for ${ domain } from signing request and signing with root CA`);
@@ -33,14 +32,8 @@ export default async function generateDomainCertificate(domain: string): Promise
 
   await withCertificateAuthorityCredentials(({ caKeyPath, caCertPath }) => {
     withDomainCertificateConfig(domain, (domainCertConfigPath) => {
-      openssl(`ca -config "${ domainCertConfigPath }" -in "${ csrFile }" -out "${ domainCertPath }" -keyfile "${ caKeyPath }" -cert "${ caCertPath }" -days 7000 -batch`)
+      generateCertificateWithCA(domainCertConfigPath, csrFile, domainCertPath, caKeyPath, caCertPath);
     });
   });
 }
 
-// Generate a cryptographic key, used to sign certificates or certificate signing requests.
-export function generateKey(filename: string): void {
-  debug(`generateKey: ${ filename }`);
-  openssl(`genrsa -out "${ filename }" 2048`);
-  chmod(filename, 400);
-}
