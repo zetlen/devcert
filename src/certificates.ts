@@ -1,8 +1,9 @@
 // import path from 'path';
 import createDebug from 'debug';
+import { unlinkSync as rm } from 'fs';
 import { sync as mkdirp } from 'mkdirp';
-import { pathForDomain, withDomainSigningRequestConfig, withDomainCertificateConfig } from './constants';
-import { generateKey, generateCertificateWithCA, generateCertificateSigningRequest } from './utils';
+import { pathForDomain } from './constants';
+import { generateCertificateWithCA, generateKey, mktmp } from './utils';
 import { withCertificateAuthorityCredentials } from './certificate-authority';
 
 const debug = createDebug('devcert:certificates');
@@ -17,23 +18,17 @@ const debug = createDebug('devcert:certificates');
 export default async function generateDomainCertificate(domain: string): Promise<void> {
   mkdirp(pathForDomain(domain));
 
-  debug(`Generating private key for ${ domain }`);
-  let domainKeyPath = pathForDomain(domain, 'private-key.key');
-  generateKey(domainKeyPath);
+  debug(`Generating key pair for ${ domain }`);
+  let domainPublicKeyPath = mktmp();
+  let domainPrivateKeyPath = pathForDomain(domain, 'private-key.key')
+  await generateKey(domainPrivateKeyPath, domainPublicKeyPath);
 
-  debug(`Generating certificate signing request for ${ domain }`);
-  let csrFile = pathForDomain(domain, `certificate-signing-request.csr`);
-  withDomainSigningRequestConfig(domain, (configpath) => {
-    generateCertificateSigningRequest(configpath, domainKeyPath, csrFile);
-  });
-
-  debug(`Generating certificate for ${ domain } from signing request and signing with root CA`);
+  debug(`Generating certificate for ${ domain } and signing with root CA`);
   let domainCertPath = pathForDomain(domain, `certificate.crt`);
 
-  await withCertificateAuthorityCredentials(({ caKeyPath, caCertPath }) => {
-    withDomainCertificateConfig(domain, (domainCertConfigPath) => {
-      generateCertificateWithCA(domainCertConfigPath, csrFile, domainCertPath, caKeyPath, caCertPath);
-    });
-  });
+  await withCertificateAuthorityCredentials(({ caKeyPath, caCertPath }) => 
+     generateCertificateWithCA(domain, domainCertPath, domainPublicKeyPath, caKeyPath, caCertPath)
+    );
+  rm(domainPublicKeyPath);
 }
 
