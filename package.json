@@ -1,6 +1,6 @@
 {
   "name": "@jzetlen/devcert",
-  "version": "1.0.0",
+  "version": "2.0.0-forge",
   "description": "Generate trusted local SSL/TLS certificates for local SSL development",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
